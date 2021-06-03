@@ -70,18 +70,24 @@ def login():
 
 # defines /user and /user/<public_id> endpoints
 user = '/user'
-user_id = '/user/<public_id>'
+public_id = '/user/<public_id>'
 
 
-# 'user' resource methods defined below
+# user resource methods defined below
 @app.route(user, methods=['GET'])
 def get_all_users():
-    return ''
+    users = User.query.all()
+    return make_response(jsonify({"users": users}), 200)
 
 
-@app.route(user_id, methods=['GET'])
-def get_one_user():
-    return ''
+@app.route(public_id, methods=['GET'])
+def get_one_user(public_id):
+    user = User.query.filter_by(public_id=public_id).first()
+
+    if not user:
+        return make_response(jsonify({"message": "User not found."}), 404)
+
+    return make_response(jsonify({"user": user}), 200)
 
 
 @app.route(user, methods=['POST'])
@@ -93,18 +99,33 @@ def create_user():
     db.session.add(new_user)
     db.session.commit()
 
-    return jsonify(new_user)
-    # return jsonify(vars(new_user))
+    return make_response(jsonify({"user": new_user}), 201)
 
 
-@app.route(user_id, methods=['PUT'])
-def promote_to_admin():
-    return ''
+@app.route(public_id, methods=['PUT'])
+def promote_to_admin(public_id):
+    user = User.query.filter_by(public_id=public_id).first()
+
+    if not user:
+        return make_response(jsonify({"message": "User not found."}), 404)
+
+    user.admin = True
+    db.session.commit()
+
+    return make_response(jsonify({"user": user}), 200)
 
 
-@app.route(user_id, methods=['DELETE'])
-def delete_user():
-    return ''
+@app.route(public_id, methods=['DELETE'])
+def delete_user(public_id):
+    user = User.query.filter_by(public_id=public_id).first()
+
+    if not user:
+        return make_response(jsonify({"message": "User not found."}), 404)
+
+    db.session.delete(user)
+    db.session.commit()
+
+    return make_response(jsonify({"message": "User deleted successfully."}), 200)
 
 
 if __name__ == '__main__':
