@@ -3,6 +3,7 @@ from flask import Flask, jsonify, make_response, request
 from flask_sqlalchemy import SQLAlchemy
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
+from scipy import stats
 import datetime
 import jwt
 import uuid
@@ -109,6 +110,14 @@ def get_all_moods(this_user):
     moods = Mood.query.filter_by(user_id=this_user.id).all()
     if not moods:
         return make_response(jsonify({"message": "You have no posted moods."}))
+
+    users = User.query.all()
+    user_percentile = stats.percentileofscore(
+        [user.longest_streak for user in users], this_user.longest_streak)
+
+    if user_percentile >= 50.0:
+        return make_response(jsonify({"moods": moods, "streak_percentile": user_percentile}), 200)
+
     return make_response(jsonify({"moods": moods}), 200)
 
 
@@ -165,7 +174,6 @@ def delete_mood(this_user, mood_id):
     db.session.commit()
 
     return make_response(jsonify({"message": "Mood deleted successfully."}), 200)
-
 
     # defines /user and /user/<public_id> endpoints
 user = '/user'
