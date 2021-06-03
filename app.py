@@ -41,11 +41,13 @@ class User(db.Model):
 class Mood(db.Model):
     id: int
     value: str
-    user_id: int
+    user_id: str
 
     id = db.Column(db.Integer, primary_key=True)
+    # date -- string? Whatever sqlite supports
+    # streak -- int
     value = db.Column(db.String(50))
-    user_id = db.Column(db.Integer)
+    user_id = db.Column(db.String(50))
 
 
 # wrapper for routes requiring authentication
@@ -88,20 +90,74 @@ def login():
 
     if check_password_hash(user.password, auth.password):
         token = jwt.encode({'public_id': user.public_id, 'exp': datetime.datetime.utcnow(
-        ) + TOKEN_EXP}, app.config['SECRET_KEY'])
+        ) + TOKEN_EXP}, app.config['SECRET_KEY']).decode('UTF-8')
         return make_response(jsonify({'token': token}), 200)
 
     return make_response('Authentication required.', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
 
-# defines /user and /user/<public_id> endpoints
+# defines /mood and /mood/<id> endpoints
+mood = '/mood'
+mood_id = '/mood/<id>'
+
+
+@ app.route(mood, methods=['GET'])
+@ token_required
+def get_all_moods(this_user):
+    # returns all moods for this_user
+    moods = Mood.query.filter_by(user_id=this_user.public_id).all()
+    if not moods:
+        return make_response(jsonify({"message": "You have no posted moods."}))
+    return make_response(jsonify({"moods": moods}), 200)
+
+
+@ app.route(mood_id, methods=['GET'])
+@ token_required
+def get_one_mood(this_user, id):
+    # returns mood of mood_id for this_user
+    mood = Mood.query.filter_by(
+        user_id=this_user.public_id, id=id).first()
+
+    if not mood:
+        return make_response(jsonify({"message": "Mood not found."}), 404)
+
+    return make_response(jsonify({"mood": mood}), 200)
+
+
+@ app.route(mood, methods=['POST'])
+@ token_required
+def create_mood(this_user):
+    data = request.get_json()
+    new_mood = Mood(value=data['value'],
+                    user_id=this_user.public_id)  # date=date.now
+
+    db.session.add(new_mood)
+    db.session.commit()
+
+    return make_response(jsonify({"mood": new_mood}), 201)
+
+
+@ app.route(mood_id, methods=['DELETE'])
+@ token_required
+def delete_mood(this_user, id):
+    mood = Mood.query.filter_by(user_id=this_user.public_id, id=id).first()
+
+    if not mood:
+        return make_response(jsonify({"message": "Mood not found."}), 404)
+
+    db.session.delete(mood)
+    db.session.commit()
+
+    return make_response(jsonify({"message": "Mood deleted successfully."}), 200)
+
+    # defines /user and /user/<public_id> endpoints
 user = '/user'
 public_id = '/user/<public_id>'
 
 
 # user resource methods defined below
 @ app.route(user, methods=['GET'])
-# @ token_required
+@ token_required
 def get_all_users(this_user):
     if not this_user.admin:
         return make_response(jsonify({"message": "You do not have the necessary privileges for this action."}), 401)
@@ -176,4 +232,9 @@ def delete_user(this_user, public_id):
 
 
 if __name__ == '__main__':
+    #hashed = generate_password_hash(data['admin'], method='sha256')
+    # admin_user = User(public_id=str(
+    #    uuid.uuid1()), username="admin", password=hashed, longest_streak=0, admin=True)
+    # db.session.add(admin_user)
+    # db.session.commit()
     app.run(debug=True)
