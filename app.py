@@ -93,6 +93,12 @@ def get_one_user(public_id):
 @app.route(user, methods=['POST'])
 def create_user():
     data = request.get_json()
+
+    # check that the username is not a duplicate
+    user = User.query.filter_by(username=data['username']).first()
+    if user:
+        return make_response(jsonify({"message": "This username is taken."}), 409)
+
     hashed = generate_password_hash(data['password'], method='sha256')
     new_user = User(public_id=str(
         uuid.uuid1()), username=data['username'], password=hashed, longest_streak=0, admin=False)
