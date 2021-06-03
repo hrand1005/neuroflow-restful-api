@@ -1,3 +1,3 @@
 # neuroflow-restful-api
 
-Not yet finished! :)
+Rudimentary branch contains all resources/endpoints in one file 'app.py'. Not containerized.
