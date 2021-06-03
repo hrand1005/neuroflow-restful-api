@@ -5,7 +5,6 @@ Not yet finished! :)
 Project Layout
 
 ```
-
 neuroflow-restful-api/
     api/
         model/
@@ -20,7 +19,6 @@ neuroflow-restful-api/
     db.py
     config.py
     .gitignore
-
 ```
 
 
