@@ -52,7 +52,25 @@ class Mood(db.Model):
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.args.get('token')
+        token = None
+
+        if 'x-access-token' in request.headers:
+            token = request.headers['x-access-token']
+
+        if not token:
+            return make_response(jsonify({'message': 'Authentication token required.'}), 401)
+
+        data = jwt.decode(token, app.config['SECRET_KEY'])
+        try:
+
+            this_user = User.query.filter_by(
+                public_id=data['public_id']).first()
+        except:
+            return make_response(jsonify({'message': 'Invalid token.'}), 401)
+
+        return f(this_user, *args, **kwargs)
+
+    return decorated
 
 
 # login route using http basic authentication
@@ -83,13 +101,19 @@ public_id = '/user/<public_id>'
 
 # user resource methods defined below
 @ app.route(user, methods=['GET'])
-def get_all_users():
+# @ token_required
+def get_all_users(this_user):
+    if not this_user.admin:
+        return make_response(jsonify({"message": "You do not have the necessary privileges for this action."}), 401)
     users = User.query.all()
     return make_response(jsonify({"users": users}), 200)
 
 
 @ app.route(public_id, methods=['GET'])
-def get_one_user(public_id):
+@ token_required
+def get_one_user(this_user, public_id):
+    if not this_user.admin:
+        return make_response(jsonify({"message": "You do not have the necessary privileges for this action."}), 401)
     user = User.query.filter_by(public_id=public_id).first()
 
     if not user:
@@ -99,7 +123,10 @@ def get_one_user(public_id):
 
 
 @ app.route(user, methods=['POST'])
-def create_user():
+@ token_required
+def create_user(this_user):
+    if not this_user.admin:
+        return make_response(jsonify({"message": "You do not have the necessary privileges for this action."}), 401)
     data = request.get_json()
 
     # check that the username is not a duplicate
@@ -117,7 +144,10 @@ def create_user():
 
 
 @ app.route(public_id, methods=['PUT'])
-def promote_to_admin(public_id):
+@ token_required
+def promote_to_admin(this_user, public_id):
+    if not this_user.admin:
+        return make_response(jsonify({"message": "You do not have the necessary privileges for this action."}), 401)
     user = User.query.filter_by(public_id=public_id).first()
 
     if not user:
@@ -130,7 +160,10 @@ def promote_to_admin(public_id):
 
 
 @ app.route(public_id, methods=['DELETE'])
-def delete_user(public_id):
+@ token_required
+def delete_user(this_user, public_id):
+    if not this_user.admin:
+        return make_response(jsonify({"message": "You do not have the necessary privileges for this action."}), 401)
     user = User.query.filter_by(public_id=public_id).first()
 
     if not user:
