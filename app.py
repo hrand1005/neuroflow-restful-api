@@ -60,12 +60,20 @@ def token_required(f):
 def login():
     auth = request.authorization
 
-    if auth and auth.password == 'password':
-        token = jwt.encode(
-            {'user': auth.username, 'exp': datetime.datetime.utcnow() + TOKEN_EXP}, app.config['SECRET_KEY'])
-        return jsonify({'token': token})
+    if not auth or not auth.username or not auth.password:
+        return make_response('Authentication required.', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
-    return make_response('Could not verify!', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
+    user = User.query.filter_by(username=auth.username).first()
+
+    if not user:
+        return make_response('Authentication required.', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
+    if check_password_hash(user.password, auth.password):
+        token = jwt.encode({'public_id': user.public_id, 'exp': datetime.datetime.utcnow(
+        ) + TOKEN_EXP}, app.config['SECRET_KEY'])
+        return make_response(jsonify({'token': token}), 200)
+
+    return make_response('Authentication required.', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
 
 # defines /user and /user/<public_id> endpoints
@@ -74,13 +82,13 @@ public_id = '/user/<public_id>'
 
 
 # user resource methods defined below
-@app.route(user, methods=['GET'])
+@ app.route(user, methods=['GET'])
 def get_all_users():
     users = User.query.all()
     return make_response(jsonify({"users": users}), 200)
 
 
-@app.route(public_id, methods=['GET'])
+@ app.route(public_id, methods=['GET'])
 def get_one_user(public_id):
     user = User.query.filter_by(public_id=public_id).first()
 
@@ -90,7 +98,7 @@ def get_one_user(public_id):
     return make_response(jsonify({"user": user}), 200)
 
 
-@app.route(user, methods=['POST'])
+@ app.route(user, methods=['POST'])
 def create_user():
     data = request.get_json()
 
@@ -108,7 +116,7 @@ def create_user():
     return make_response(jsonify({"user": new_user}), 201)
 
 
-@app.route(public_id, methods=['PUT'])
+@ app.route(public_id, methods=['PUT'])
 def promote_to_admin(public_id):
     user = User.query.filter_by(public_id=public_id).first()
 
@@ -121,7 +129,7 @@ def promote_to_admin(public_id):
     return make_response(jsonify({"user": user}), 200)
 
 
-@app.route(public_id, methods=['DELETE'])
+@ app.route(public_id, methods=['DELETE'])
 def delete_user(public_id):
     user = User.query.filter_by(public_id=public_id).first()
 
