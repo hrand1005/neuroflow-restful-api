@@ -39,15 +39,16 @@ class User(db.Model):
 # defines Mood class
 @dataclass
 class Mood(db.Model):
-    id: int
+    mood_id: int
     value: str
-    user_id: str
+    streak: int
+    user_id: int
 
-    id = db.Column(db.Integer, primary_key=True)
-    # date -- string? Whatever sqlite supports
-    # streak -- int
+    mood_id = db.Column(db.Integer, primary_key=True)
+    date_posted = db.Column(db.DateTime, default=datetime.datetime.utcnow())
+    streak = db.Column(db.Integer)
     value = db.Column(db.String(50))
-    user_id = db.Column(db.String(50))
+    user_id = db.Column(db.Integer)
 
 
 # wrapper for routes requiring authentication
@@ -98,14 +99,14 @@ def login():
 
 # defines /mood and /mood/<id> endpoints
 mood = '/mood'
-mood_id = '/mood/<id>'
+mood_id = '/mood/<mood_id>'
 
 
 @ app.route(mood, methods=['GET'])
 @ token_required
 def get_all_moods(this_user):
     # returns all moods for this_user
-    moods = Mood.query.filter_by(user_id=this_user.public_id).all()
+    moods = Mood.query.filter_by(user_id=this_user.id).all()
     if not moods:
         return make_response(jsonify({"message": "You have no posted moods."}))
     return make_response(jsonify({"moods": moods}), 200)
@@ -113,10 +114,10 @@ def get_all_moods(this_user):
 
 @ app.route(mood_id, methods=['GET'])
 @ token_required
-def get_one_mood(this_user, id):
+def get_one_mood(this_user, mood_id):
     # returns mood of mood_id for this_user
     mood = Mood.query.filter_by(
-        user_id=this_user.public_id, id=id).first()
+        user_id=this_user.id, mood_id=mood_id).first()
 
     if not mood:
         return make_response(jsonify({"message": "Mood not found."}), 404)
@@ -128,8 +129,23 @@ def get_one_mood(this_user, id):
 @ token_required
 def create_mood(this_user):
     data = request.get_json()
-    new_mood = Mood(value=data['value'],
-                    user_id=this_user.public_id)  # date=date.now
+    # check streak
+    current_time = datetime.datetime.utcnow()
+    one_day_ago = current_time - datetime.timedelta(days=1)
+    two_days_ago = current_time - datetime.timedelta(days=2)
+    yesterday = Mood.query.filter(Mood.date_posted < one_day_ago).filter(
+        Mood.date_posted > two_days_ago).first()
+    streak = 1
+    if yesterday:
+        streak = yesterday.streak + 1
+
+    new_mood = Mood(value=data['value'], streak=streak,
+                    user_id=this_user.id)
+
+    # check user's longest streak, update if necessary
+    user = User.query.filter_by(id=this_user.id).first()
+    if user.longest_streak < streak:
+        user.longest_streak = streak
 
     db.session.add(new_mood)
     db.session.commit()
@@ -139,8 +155,8 @@ def create_mood(this_user):
 
 @ app.route(mood_id, methods=['DELETE'])
 @ token_required
-def delete_mood(this_user, id):
-    mood = Mood.query.filter_by(user_id=this_user.public_id, id=id).first()
+def delete_mood(this_user, mood_id):
+    mood = Mood.query.filter_by(user_id=this_user.id, mood_id=mood_id).first()
 
     if not mood:
         return make_response(jsonify({"message": "Mood not found."}), 404)
@@ -149,6 +165,7 @@ def delete_mood(this_user, id):
     db.session.commit()
 
     return make_response(jsonify({"message": "Mood deleted successfully."}), 200)
+
 
     # defines /user and /user/<public_id> endpoints
 user = '/user'
@@ -232,9 +249,13 @@ def delete_user(this_user, public_id):
 
 
 if __name__ == '__main__':
-    #hashed = generate_password_hash(data['admin'], method='sha256')
-    # admin_user = User(public_id=str(
-    #    uuid.uuid1()), username="admin", password=hashed, longest_streak=0, admin=True)
-    # db.session.add(admin_user)
-    # db.session.commit()
+    # check if admin user exists in db, for debugging
+    admin = User.query.filter_by(username='admin').first()
+    if not admin:
+        hashed = generate_password_hash('admin', method='sha256')
+        admin_user = User(public_id=str(
+            uuid.uuid1()), username='admin', password=hashed, longest_streak=0, admin=True)
+        db.session.add(admin_user)
+        db.session.commit()
+
     app.run(debug=True)
