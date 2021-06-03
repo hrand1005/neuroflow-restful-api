@@ -2,7 +2,7 @@
 
 Not yet finished! :)
 
-Project Layout
+## Project Layout
 
 ```
 neuroflow-restful-api/
