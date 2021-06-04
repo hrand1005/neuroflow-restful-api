@@ -22,21 +22,34 @@ import json
 import requests
 import unittest
 import uuid
+import os
 
 BASE = 'http://127.0.0.1:5000/'
 
 
 class LoginTestCase(unittest.TestCase):
     def setUp(self):
-        # creates admin user in db with username, password: 'admin', 'admin'
-        admin = User.query.filter_by(username='admin').first()
+        # creates admin user in db with username, password: 'admin', 'admin' if one doesn't exist
+        self.added_admin = False
+        admin = User.query.filter_by(username='admin', password=generate_password_hash(
+            'admin', method='sha256')).first()
         if not admin:
             hashed = generate_password_hash('admin', method='sha256')
-            admin_user = User(public_id=str(
+            self.admin_user = admin_user = User(public_id=str(
                 uuid.uuid1()), username='admin', password=hashed, longest_streak=0, admin=True)
             db.session.add(admin_user)
             db.session.commit()
+            self.added_admin = True
+        else:
+            self.admin_user = admin
         self.db = db
+        self.admin_user = admin_user
+
+    def tearDown(self):
+        # removes admin user from setUp if the unittest added it
+        if self.added_admin:
+            db.session.delete(self.admin_user)
+            db.session.commit()
 
     def test_login_no_credentials(self):
         response = requests.get(BASE + 'login')
