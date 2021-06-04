@@ -17,7 +17,7 @@ Run app:
 python3 app.py
 ```
 
-## Testing
+## API
 You may send GET and POST http requests as you see fit (python requests, postman etc.). Here's how to login and get started:
 
 ```
@@ -64,10 +64,22 @@ neuroflow-restful-api/
             login.py
             mood.py
             user.py
+    test/
+        __init__.py
+        unittests.py
+    .gitignore
     app.py
     db.py
     config.py
-    .gitignore
+    requirements.txt
 ```
 
+## Branches
+Current branches:
+### main
+Latest version of API
+### rudimentary
+Earliest version of the API that meets the requirements for mood endpoints. All routes, classes, etc. contained in one file app.py.
+### new-layout
+On par with rudimentary branch, but uses the new project file/folder structure
 
