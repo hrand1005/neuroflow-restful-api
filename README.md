@@ -74,8 +74,7 @@ neuroflow-restful-api/
     requirements.txt
 ```
 
-## Branches
-Current branches:
+## Current Branches
 ### main
 Latest version of API
 ### rudimentary
