@@ -3,7 +3,6 @@ from api.model.user import User
 from api.routes.login import token_required
 from config import db
 from flask import Blueprint, jsonify, make_response, request
-from scipy import stats
 import datetime
 
 
@@ -13,6 +12,13 @@ mood_api = Blueprint('mood_api', __name__)
 # defines /mood and /mood/<id> endpoints
 mood = '/mood'
 mood_id = '/mood/<mood_id>'
+
+
+# helper function manually calculates user percentile so I don't have to import numpy
+def get_user_percentile(all_streaks, user_streak):
+    min_value = min(all_streaks)
+    max_value = max(all_streaks)
+    return (100 * float(user_streak - min_value)/(max_value-min_value))
 
 
 # REQUIRED ENDPOINT
@@ -26,7 +32,7 @@ def get_all_moods(this_user):
 
     # queries db to check this user's longest streak percentile. if > 50.0, returns percentile in response body
     users = User.query.all()
-    user_percentile = stats.percentileofscore(
+    user_percentile = get_user_percentile(
         [user.longest_streak for user in users], this_user.longest_streak)
 
     if user_percentile >= 50.0:
@@ -64,10 +70,18 @@ def create_mood(this_user):
     if user.longest_streak < streak:
         user.longest_streak = streak
 
-    # check user's streak percentile, return if >= 50.0
     # commit changes to db, return 201
     db.session.add(new_mood)
     db.session.commit()
+
+    # check user's streak percentile, return if >= 50.0
+    # queries db to check this user's longest streak percentile. if > 50.0, returns percentile in response body
+    users = User.query.all()
+    user_percentile = get_user_percentile(
+        [user.longest_streak for user in users], this_user.longest_streak)
+
+    if user_percentile >= 50.0:
+        return make_response(jsonify({"moods": mood, "streak_percentile": user_percentile}), 201)
 
     return make_response(jsonify({"mood": new_mood}), 201)
 
