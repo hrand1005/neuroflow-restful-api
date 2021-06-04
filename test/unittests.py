@@ -22,7 +22,6 @@ import json
 import requests
 import unittest
 import uuid
-import os
 
 BASE = 'http://127.0.0.1:5000/'
 
