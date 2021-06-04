@@ -13,12 +13,22 @@ user = '/user'
 public_id = '/user/<public_id>'
 
 
+# common response for no admin privileges
+def not_allowed():
+    return make_response(jsonify({"message": "You do not have the necessary privileges for this action."}), 401)
+
+
+# common response for user not found
+def not_found():
+    return make_response(jsonify({"message": "User not found."}), 404)
+
+
 # DEBUGGING/EXTENDING ENDPOINT
 @ user_api.route(user, methods=['GET'])
 @ token_required
 def get_all_users(this_user):
     if not this_user.admin:
-        return make_response(jsonify({"message": "You do not have the necessary privileges for this action."}), 401)
+        return not_allowed()
     users = User.query.all()
     return make_response(jsonify({"users": users}), 200)
 
@@ -28,11 +38,11 @@ def get_all_users(this_user):
 @ token_required
 def get_one_user(this_user, public_id):
     if not this_user.admin:
-        return make_response(jsonify({"message": "You do not have the necessary privileges for this action."}), 401)
+        return not_allowed()
     user = User.query.filter_by(public_id=public_id).first()
 
     if not user:
-        return make_response(jsonify({"message": "User not found."}), 404)
+        return not_found()
 
     return make_response(jsonify({"user": user}), 200)
 
@@ -42,7 +52,7 @@ def get_one_user(this_user, public_id):
 @ token_required
 def create_user(this_user):
     if not this_user.admin:
-        return make_response(jsonify({"message": "You do not have the necessary privileges for this action."}), 401)
+        return not_allowed()
     data = request.get_json()
 
     # check that the username is not a duplicate
@@ -64,11 +74,11 @@ def create_user(this_user):
 @ token_required
 def promote_to_admin(this_user, public_id):
     if not this_user.admin:
-        return make_response(jsonify({"message": "You do not have the necessary privileges for this action."}), 401)
+        return not_allowed()
     user = User.query.filter_by(public_id=public_id).first()
 
     if not user:
-        return make_response(jsonify({"message": "User not found."}), 404)
+        return not_found()
 
     user.admin = True
     db.session.commit()
@@ -81,11 +91,11 @@ def promote_to_admin(this_user, public_id):
 @ token_required
 def delete_user(this_user, public_id):
     if not this_user.admin:
-        return make_response(jsonify({"message": "You do not have the necessary privileges for this action."}), 401)
+        return not_allowed()
     user = User.query.filter_by(public_id=public_id).first()
 
     if not user:
-        return make_response(jsonify({"message": "User not found."}), 404)
+        return not_found()
 
     db.session.delete(user)
     db.session.commit()

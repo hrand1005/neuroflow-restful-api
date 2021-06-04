@@ -8,11 +8,11 @@ import jwt
 
 # LOGIN AND TOKEN AUTHENTICATION METHODS
 
-# wrapper for routes requiring authentication
 
 login_api = Blueprint('login_api', __name__)
 
 
+# wrapper for routes requiring authentication
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -38,6 +38,11 @@ def token_required(f):
     return decorated
 
 
+# common response in following endpoint
+def authentication_required():
+    return make_response('Authentication required.', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
+
 # REQUIRED ENDPOINT
 @login_api.route('/login')
 def login():
@@ -46,13 +51,13 @@ def login():
 
     # check auth credentials exist before querying db
     if not auth or not auth.username or not auth.password:
-        return make_response('Authentication required.', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
+        return authentication_required()
 
     # query db by username, which should be unique. if doesn't exist, return 401
     user = User.query.filter_by(username=auth.username).first()
 
     if not user:
-        return make_response('Authentication required.', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
+        return authentication_required()
 
     # if password is correct, return token and response code 200, else return 401
     if check_password_hash(user.password, auth.password):
@@ -60,4 +65,4 @@ def login():
         ) + TOKEN_EXP}, SECRET_KEY).decode('UTF-8')
         return make_response(jsonify({'token': token}), 200)
 
-    return make_response('Authentication required.', 401, {'WWW-Authenticate': 'Basic realm="Login Required"'})
+    return authentication_required()
