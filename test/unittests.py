@@ -69,5 +69,7 @@ class LoginTestCase(unittest.TestCase):
         self.assertTrue("token" in response.json())
 
 
+# TODO: GetMoodsTestCase, PostMoodsTestCase, including percentile and streak checking
+
 if __name__ == '__main__':
     unittest.main()
