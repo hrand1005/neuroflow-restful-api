@@ -1,15 +1,15 @@
 """
 INSTRUCTIONS:
 
-While app is running, in any dir..
+While app is running, to run all tests...
 
     pyhton3 -m unittest -v <path/unittests.py> 
 
-...to run all tests. To run individual cases...
+To run individual cases...
 
     python3 -m unittest -v <path/unittests.py>.<TestClass>
 
-...or even individual methods...
+To run individual methods...
 
     python3 -m unittest -v <path/unittests.py>.<TestClass>.<test_method>
 
@@ -23,30 +23,55 @@ import requests
 import unittest
 import uuid
 
+
 BASE = 'http://127.0.0.1:5000/'
+
+
+# COMMONLY USED HELPER METHODS
+def add_user_to_db(username, password, is_admin):
+    # tries to add User to db
+    exists = False
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        hashed = generate_password_hash(password, method='sha256')
+        user = User(public_id=str(uuid.uuid1()), username=username,
+                    password=hashed, longest_streak=0, admin=is_admin)
+        exists = True
+
+    # returns bool indicating whether user exists, and user object
+    return exists, user
+
+
+def add_mood_to_db(user):
+    # helper function adds a mood to the db for the given user without invoking POST on /mood endpoint
+    # for the given user. For simplicity, creates mood with value '<username> mood here.'
+    new_mood = Mood(value=f'{user.username} mood here.',
+                    streak=user.streak, user_id=user.id)
+
+    # check user's longest streak, update if necessary
+    user = User.query.filter_by(id=user.id).first()
+    if user.longest_streak < user.streak:
+        user.longest_streak = user.streak
+
+    db.session.add(new_mood)
+    db.session.commit()
+
+    return new_mood
 
 
 class LoginTestCase(unittest.TestCase):
     def setUp(self):
         # creates admin user in db with username, password: 'admin', 'admin' if one doesn't exist
-        self.added_admin = False
-        admin = User.query.filter_by(username='admin', password=generate_password_hash(
-            'admin', method='sha256')).first()
-        if not admin:
-            hashed = generate_password_hash('admin', method='sha256')
-            self.admin_user = admin_user = User(public_id=str(
-                uuid.uuid1()), username='admin', password=hashed, longest_streak=0, admin=True)
-            db.session.add(admin_user)
+        self.admin_exists, self.admin_user = add_user_to_db(
+            'admin', 'admin', True)
+
+        if not self.admin_exists:
+            db.session.add(self.admin_user)
             db.session.commit()
-            self.added_admin = True
-        else:
-            self.admin_user = admin
-        self.db = db
-        self.admin_user = admin_user
 
     def tearDown(self):
         # removes admin user from setUp if the unittest added it
-        if self.added_admin:
+        if not self.admin_exists:
             db.session.delete(self.admin_user)
             db.session.commit()
 
@@ -71,35 +96,28 @@ class LoginTestCase(unittest.TestCase):
 class GetMoodsTestCase(unittest.TestCase):
     def setUp(self):
         # creates admin user in db with username, password: 'admin', 'admin' if one doesn't exist
-        self.added_admin = False
-        admin = User.query.filter_by(username='admin', password=generate_password_hash(
-            'admin', method='sha256')).first()
-        if not admin:
-            hashed = generate_password_hash('admin', method='sha256')
-            self.admin_user = admin_user = User(public_id=str(
-                uuid.uuid1()), username='admin', password=hashed, longest_streak=0, admin=True)
-            db.session.add(admin_user)
-            self.added_admin = True
-        else:
-            self.admin_user = admin
-        self.admin_user = admin_user
+        self.admin_exists, self.admin_user = add_user_to_db(
+            'admin', 'admin', True)
+
+        if not self.admin_exists:
+            db.session.add(self.admin_user)
+            db.session.commit()
 
         # creates user 'GetMoodsTestCase', non-admin
-        test_hashed = generate_password_hash('password', method='sha256')
-        test_user = User(public_id=str(uuid.uuid1(
-        )), username='GetMoodsTestCase', password=test_hashed, longest_streak=1, admin=False)
-        db.session.add(test_user)
-        db.session.commit()
-        self.db = db
-        self.test_user = test_user
+        self.test_user_exists, self.test_user = add_user_to_db(
+            'GetMoodsTestCase', 'password', False)
+
+        if not self.test_user_exists:
+            db.session.add(self.test_user)
+            db.session.commit()
 
     def tearDown(self):
         # removes added users
-        if self.added_admin:
-            self.db.session.delete(self.admin_user)
+        if not self.admin_exists:
+            db.session.delete(self.admin_user)
 
-        self.db.session.delete(self.test_user)
-        self.db.session.commit()
+        if not self.test_user_exists:
+            db.session.delete(self.test_user)
 
     def test_get_mood_no_token(self):
         # tries to retrieve data from mood endpoints with no auth token
