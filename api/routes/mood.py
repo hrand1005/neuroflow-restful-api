@@ -18,7 +18,10 @@ mood_id = '/mood/<mood_id>'
 def get_user_percentile(all_streaks, user_streak):
     min_value = min(all_streaks)
     max_value = max(all_streaks)
-    return (100 * float(user_streak - min_value)/(max_value-min_value))
+    if max_value == min_value:
+        return 100
+    else:
+        return (100 * float(user_streak - min_value)/(max_value - min_value))
 
 
 # REQUIRED ENDPOINT
