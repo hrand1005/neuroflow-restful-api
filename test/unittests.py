@@ -52,9 +52,6 @@ def add_mood_to_db(user):
     if user.longest_streak < new_mood.streak:
         user.longest_streak = new_mood.streak
 
-    db.session.add(new_mood)
-    db.session.commit()
-
     return new_mood
 
 
@@ -97,18 +94,26 @@ class GetMoodsTestCase(unittest.TestCase):
         # creates admin user in db with username, password: 'admin', 'admin' if one doesn't exist
         self.admin_exists, self.admin_user = add_user_to_db(
             'admin', 'admin', True)
-
         if not self.admin_exists:
             db.session.add(self.admin_user)
             db.session.commit()
 
+        # adds admin mood directly to db
+        self.admin_mood = add_mood_to_db(self.admin_user)
+        db.session.add(self.admin_mood)
+
         # creates user 'GetMoodsTestCase', non-admin
         self.test_user_exists, self.test_user = add_user_to_db(
             'GetMoodsTestCase', 'password', False)
-
         if not self.test_user_exists:
             db.session.add(self.test_user)
             db.session.commit()
+
+        # adds test_user_mood directly to db
+        self.test_user_mood = add_mood_to_db(self.test_user)
+        db.session.add(self.test_user_mood)
+
+        db.session.commit()
 
     def tearDown(self):
         # removes added users
@@ -118,13 +123,15 @@ class GetMoodsTestCase(unittest.TestCase):
         if not self.test_user_exists:
             db.session.delete(self.test_user)
 
+        db.session.delete(self.admin_mood)
+        db.session.delete(self.test_user_mood)
         db.session.commit()
 
     def test_get_mood_no_token(self):
         # tries to retrieve data from mood endpoints with no auth token
         response = requests.get(BASE + 'mood')
         self.assertEqual(response.status_code, 401)
-        self.assertTrue(response.json()["message"]
+        self.assertTrue(response.json()['message']
                         == "Authentication token required.")
         self.assertFalse("moods" in response.json())
 
@@ -137,49 +144,41 @@ class GetMoodsTestCase(unittest.TestCase):
         self.assertFalse("moods" in response.json())
 
     def test_get_mood_valid_user(self):
-        # adds mood directly to db, then tries to retrieve data from mood endpoints
-        admin_mood = add_mood_to_db(self.admin_user)
+        # tries to retrieve data from mood endpoints with valid token
 
         # login with self.admin_user, get token
         login_response = requests.get(
             BASE + 'login', auth=('admin', 'admin'))
-        token = json.loads(login_response.text)["token"]
+        token = json.loads(login_response.text)['token']
         # check that admin_mood can be retrieved by the admin user
         mood_response = requests.get(
             BASE + 'mood', headers={"X-Access-Token": token})
 
         # check expected fields
         self.assertEqual(json.loads(mood_response.text)[
-            "moods"][0]["mood_id"], admin_mood.mood_id)
+            "moods"][0]["mood_id"], self.admin_mood.mood_id)
         self.assertEqual(json.loads(mood_response.text)[
-            "moods"][0]["streak"], admin_mood.streak)
+            "moods"][0]["streak"], self.admin_mood.streak)
         self.assertEqual(json.loads(mood_response.text)[
             "moods"][0]["user_id"], self.admin_user.id)
         self.assertEqual(json.loads(mood_response.text)[
-            "moods"][0]["value"], admin_mood.value)
+            "moods"][0]["value"], self.admin_mood.value)
 
-        # remove added admin_mood
-        db.session.delete(admin_mood)
-        db.session.commit()
-
-    """
     def test_get_mood_invalid_user(self):
         # tries to retrieve data from mood endpoints with the wrong user's credentials
-        # first, let's add a mood posting from the admin user
-        admin_mood = add_mood_to_db(self.admin_user)
 
         # login with self.test_user, get token
         login_response = requests.get(
-            BASE + 'login', auth=(self.test_user.username, self.test_user.password))
-        token = login_response.json()["token"]
+            BASE + 'login', auth=('GetMoodsTestCase', 'password'))
+        token = json.loads(login_response.text)['token']
 
         # check if admin_mood can be retrieved with the wrong user (test_user)
         mood_response = requests.get(
             BASE + 'mood', headers={"X-Access-Token": token})
-        self.assertEqual()
-    """
-    #
-# TODO: Check that users can't get each other's mood postings...
+
+        for mood in json.loads(mood_response.text)['moods']:
+            self.assertNotEqual(mood['value'], self.admin_mood.value)
+            self.assertNotEqual(mood['user_id'], self.admin_user.id)
 
 
 # TODO: PostMoodsTestCase, including percentile and streak checking
