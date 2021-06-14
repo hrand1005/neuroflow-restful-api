@@ -48,18 +48,15 @@ def authentication_required():
 def login():
     # parse authorization from request header
     auth = request.authorization
-    print("Attempting to authorize...")
 
     # check auth credentials exist before querying db
     if not auth or not auth.username or not auth.password:
-        print("Not enough info in HTTP header...")
         return authentication_required()
 
     # query db by username, which should be unique. if doesn't exist, return 401
     user = User.query.filter_by(username=auth.username).first()
 
     if not user:
-        print("User not foudn in db...")
         return authentication_required()
 
     # if password is correct, return token and response code 200, else return 401
@@ -68,5 +65,4 @@ def login():
         ) + TOKEN_EXP}, SECRET_KEY).decode('UTF-8')
         return make_response(jsonify({'token': token}), 200)
 
-    print("Incorrect password...")
     return authentication_required()
