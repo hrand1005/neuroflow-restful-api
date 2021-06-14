@@ -26,7 +26,10 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# I don't know how these work yet
 Dockerfile
+docker-compose.yml
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
